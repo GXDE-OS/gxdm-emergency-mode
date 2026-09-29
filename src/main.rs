@@ -1,4 +1,21 @@
-use std::io;
+// Copyright (C) 2026 CharOfString <root@charofstring.cc>
+//
+//
+// This software is free software: you can redistribute it and/or modify it under the terms of the
+// GNU General Public License as published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// This software is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along with this software. If
+// not, see <https://www.gnu.org/licenses/>.
+
+// The UI does not use these helpers yet.
+#[allow(dead_code)]
+mod backend;
+
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::{
     DefaultTerminal, Frame,
@@ -7,6 +24,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::Paragraph,
 };
+use std::io;
 
 const LIGHT_BLUE: Color = Color::Rgb(155, 205, 245);
 
@@ -50,7 +68,10 @@ fn draw_top(frame: &mut Frame, area: Rect) {
 
     let style = Style::default().fg(LIGHT_BLUE);
     let title = Line::from(vec![
-        Span::styled("  GXDE Display Manager ", style.add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "  GXDE Display Manager ",
+            style.add_modifier(Modifier::BOLD),
+        ),
         Span::styled("RECUSE MODE", style.add_modifier(Modifier::BOLD)),
     ]);
     frame.render_widget(
