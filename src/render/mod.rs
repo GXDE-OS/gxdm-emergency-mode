@@ -12,30 +12,6 @@
 // You should have received a copy of the GNU General Public License along with this software. If
 // not, see <https://www.gnu.org/licenses/>.
 
-// The UI does not use these helpers yet.
-#[allow(dead_code)]
-mod backend;
-mod render;
+//! Terminal rendering for the greeter.
 
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
-use ratatui::DefaultTerminal;
-use std::io;
-
-// Start the terminal UI.
-fn main() -> io::Result<()> {
-    ratatui::run(run)
-}
-
-// Handle input while the greeter is running.
-fn run(terminal: &mut DefaultTerminal) -> io::Result<()> {
-    loop {
-        terminal.draw(render::greeter::draw)?;
-        if let Event::Key(key) = event::read()?
-            && key.kind != KeyEventKind::Release
-            && key.code == KeyCode::Char('c')
-            && key.modifiers.contains(KeyModifiers::CONTROL)
-        {
-            return Ok(());
-        }
-    }
-}
+pub mod greeter;
