@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd -- "$ROOT"
+
+usage() {
+    cat <<'HELP'
+Usage: ./mr-test
+
+Run those tests that is same as what our GitHub Merge Request checker runs.
+HELP
+}
+
+if (( $# > 0 )); then
+    if (( $# == 1 )) && [[ "$1" == -h || "$1" == --help ]]; then
+        usage
+        exit 0
+    fi
+    usage >&2
+    exit 2
+fi
+
+mkdir -p -- "$ROOT/target/mr-test"
+LOG_DIR="$(mktemp -d "$ROOT/target/mr-test/run-XXXXXXXX")"
+trap 'printf "\nInterrupted; logs: %s\n" "$LOG_DIR" >&2; exit 130' INT
+trap 'printf "\nTerminated; logs: %s\n" "$LOG_DIR" >&2; exit 143' TERM
+
+names=()
+statuses=()
+durations=()
+logs=()
+failed=0
+
+run_check() {
+    local name="$1" slug="$2"
+    shift 2
+    local log="$LOG_DIR/$slug.log" start=$SECONDS status=0
+    printf 'Running: %s\n' "$name"
+    {
+        printf 'Command:'
+        printf ' %q' "$@"
+        printf '\n\n'
+    } > "$log"
+    "$@" >> "$log" 2>&1 || status=$?
+    names+=("$name")
+    statuses+=("$status")
+    durations+=("$((SECONDS - start))")
+    logs+=("$log")
+    if (( status != 0 )); then
+        failed=$((failed + 1))
+    fi
+}
+
+printf 'Local PR checks (current toolchain)\nLogs: %s\n\n' "$LOG_DIR"
+# Keep these commands aligned with .github/workflows/pr-checks.yml.
+run_check 'Linting' lint cargo clippy --all-targets --all-features --locked -- -D warnings
+run_check 'Code style' format ./format-code --check
+run_check 'License headers' license env COPYRIGHT_EMAIL=root@charofstring.cc ./update-header --check
+run_check 'Compilation' compile cargo check --all-targets --all-features --locked
+
+printf '\n=== M.R. check report ===\n'
+for i in "${!names[@]}"; do
+    result=PASS
+    if (( statuses[i] != 0 )); then
+        result=FAIL
+    fi
+    printf '%-4s  %-20s  %ss (exit %s)\n' "$result" "${names[i]}" "${durations[i]}" "${statuses[i]}"
+done
+printf '\nTotal: %s | Passed: %s | Failed: %s\n' "${#names[@]}" "$((${#names[@]} - failed))" "$failed"
+
+for i in "${!names[@]}"; do
+    if (( statuses[i] != 0 )); then
+        printf '\n=== %s: full failure log ===\n' "${names[i]}"
+        cat -- "${logs[i]}"
+    fi
+done
+printf '\nLogs retained: %s\n' "$LOG_DIR"
+if (( failed != 0 )); then
+    exit 1
+fi

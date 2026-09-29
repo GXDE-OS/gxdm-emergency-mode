@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run from the project root, even when invoked from another directory.
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd -- "$ROOT"
+
+usage() {
+    cat <<'HELP'
+Usage: ./update-header [--check]
+
+Add missing license headers to Rust files under src/.
+--check checks for missing headers without modifying files.
+Existing headers and source comments are preserved; years are not rewritten.
+
+Environment overrides:
+  COPYRIGHT_HOLDER  Default: CharOfString
+  COPYRIGHT_EMAIL   Default: Git user.email (required unless supplied)
+  COPYRIGHT_YEAR    Default: current year (also accepts a year range)
+  ADDLICENSE       Default: addlicense (executable name or absolute path)
+
+Install dependency:
+  go install github.com/google/addlicense@latest
+  export PATH="$(go env GOPATH)/bin:$PATH"
+HELP
+}
+
+args=()
+case "${1:-}" in
+    '') ;;
+    --check) args+=(-check) ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+esac
+if (( $# > 1 )); then
+    usage >&2
+    exit 2
+fi
+
+ADDLICENSE="${ADDLICENSE:-addlicense}"
+if ! command -v "$ADDLICENSE" >/dev/null 2>&1; then
+    printf 'Error: Missing addlicense: %s\n' "$ADDLICENSE" >&2
+    usage >&2
+    exit 127
+fi
+
+COPYRIGHT_EMAIL="${COPYRIGHT_EMAIL:-$(git config user.email || true)}"
+if [[ -z "$COPYRIGHT_EMAIL" ]]; then
+    echo 'Error: Set COPYRIGHT_EMAIL or configure Git user.email' >&2
+    exit 1
+fi
+
+# Explicitly select Rust sources; never traverse target/, .git/, or dependencies.
+mapfile -d '' -t files < <(find src -type f -name '*.rs' -print0)
+if (( ${#files[@]} == 0 )); then
+    echo 'Error: No Rust source files under src/' >&2
+    exit 1
+fi
+
+exec "$ADDLICENSE" "${args[@]}" \
+    -f scripts/license-header.txt \
+    -c "${COPYRIGHT_HOLDER:-CharOfString} <$COPYRIGHT_EMAIL>" \
+    -y "${COPYRIGHT_YEAR:-$(date +%Y)}" \
+    -v "${files[@]}"

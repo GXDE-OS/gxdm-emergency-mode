@@ -1,0 +1,45 @@
+name: PR checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install Rust tooling
+        run: |
+          rustup update stable
+          rustup default stable
+          rustup component add clippy rustfmt
+
+      - name: Check linting
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+
+      - name: Check code style
+        run: ./format-code --check
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26'
+          cache: false
+
+      - name: Install addlicense
+        run: |
+          go install github.com/google/addlicense@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Check license headers
+        env:
+          COPYRIGHT_EMAIL: root@charofstring.cc
+        run: ./update-header --check
+
+      - name: Check compilation
+        run: cargo check --all-targets --all-features --locked

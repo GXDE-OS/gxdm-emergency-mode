@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run from the project root, even when invoked from another directory.
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd -- "$ROOT"
+
+usage() {
+    cat <<'HELP'
+Usage: ./format-code [--check]
+
+Format Rust code in all workspace packages with cargo fmt.
+--check checks formatting without modifying files.
+
+Install dependencies with rustup:
+  rustup component add rustfmt
+HELP
+}
+
+if (( $# > 1 )); then
+    usage >&2
+    exit 2
+fi
+
+args=()
+case "${1:-}" in
+    '')
+        if (( $# != 0 )); then
+            usage >&2
+            exit 2
+        fi
+        ;;
+    --check) args+=(--check) ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+esac
+
+if ! command -v cargo >/dev/null 2>&1; then
+    echo 'Error: cargo is not installed or not on PATH.' >&2
+    exit 127
+fi
+
+if ! cargo fmt --version >/dev/null 2>&1; then
+    echo 'Error: cargo fmt is unavailable. Install rustfmt: rustup component add rustfmt' >&2
+    exit 1
+fi
+
+exec cargo fmt --all "${args[@]}"

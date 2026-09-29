@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run from the project root, even when invoked from another directory.
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd -- "$ROOT"
+
+usage() {
+    cat <<'HELP'
+Usage: ./lint-code
+
+Lint all workspace packages, targets, and features with cargo clippy.
+Treat warnings as errors; do not modify source files.
+
+Install dependencies with rustup:
+  rustup component add clippy
+HELP
+}
+
+if (( $# > 0 )); then
+    if (( $# == 1 )) && [[ "$1" == '-h' || "$1" == '--help' ]]; then
+        usage
+        exit 0
+    fi
+    usage >&2
+    exit 2
+fi
+
+if ! command -v cargo >/dev/null 2>&1; then
+    echo 'Error: cargo is not installed or not on PATH.' >&2
+    exit 127
+fi
+
+if ! cargo clippy --version >/dev/null 2>&1; then
+    echo 'Error: cargo clippy is unavailable. Install Clippy: rustup component add clippy' >&2
+    exit 1
+fi
+
+exec cargo clippy --workspace --all-targets --all-features -- -D warnings
