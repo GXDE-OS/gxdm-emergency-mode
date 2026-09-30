@@ -1,0 +1,32 @@
+#!/usr/bin/make -f
+
+# Keep package builds apart from the developer's target/ directory.
+export CARGO_TARGET_DIR := $(CURDIR)/debian/cargo-target
+PKG := debian/gxdm-emergency-mode
+
+%:
+	dh $@
+
+# debhelper has no built-in cargo support, so build with cargo directly.
+# Cargo.lock is used as-is; crates come from the local cargo cache or network.
+override_dh_auto_build:
+	cargo build --release --locked
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	cargo test --release --locked
+endif
+
+# The PAM service and unit are named gxdm-rescue, not after the package.
+override_dh_auto_install:
+	install -D -m 0755 $(CARGO_TARGET_DIR)/release/gxdm-emergency-mode $(PKG)/usr/sbin/gxdm-emergency-mode
+	install -D -m 0644 data/gxdm-rescue.pam $(PKG)/etc/pam.d/gxdm-rescue
+	install -D -m 0644 data/gxdm-rescue.service $(PKG)/usr/lib/systemd/system/gxdm-rescue.service
+
+# Never enable or start the rescue greeter on install; the admin decides.
+override_dh_installsystemd:
+	dh_installsystemd --no-enable --no-start
+
+# Release builds have no debug info, so a -dbgsym package would be empty.
+override_dh_strip:
+	dh_strip --no-automatic-dbgsym

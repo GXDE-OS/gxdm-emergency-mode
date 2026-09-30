@@ -7,7 +7,7 @@ ConditionPathExists=/dev/tty8
 
 [Service]
 Type=simple
-ExecStart=/usr/local/sbin/gxdm-emergency-mode
+ExecStart=/usr/sbin/gxdm-emergency-mode
 User=root
 WorkingDirectory=/
 StandardInput=tty

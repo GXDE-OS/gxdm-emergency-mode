@@ -24,16 +24,29 @@ not replace an end-to-end PAM/logind/graphics test. The supplied service uses
 **tty8 on seat0**. Check that no other display manager is using that VT before
 starting it. Do not replace your working display manager yet.
 
+Build and install the Debian package. It installs the binary to `/usr/sbin`,
+the PAM policy to `/etc/pam.d/gxdm-rescue` and the systemd unit, but does not
+enable or start the service. `cargo` needs the crates in its local cache or
+network access.
+
 ```sh
-sudo install -o root -g root -m 0755 target/release/gxdm-emergency-mode /usr/local/sbin/
-sudo install -o root -g root -m 0644 packaging/gxdm-rescue.pam /etc/pam.d/gxdm-rescue
-sudo install -o root -g root -m 0644 packaging/gxdm-rescue.service /etc/systemd/system/
-sudo systemctl daemon-reload
+sudo apt install debhelper cargo rustc
+dpkg-buildpackage -us -uc -b
+sudo apt install ../gxdm-emergency-mode_0.1.0-gxde1_amd64.deb
 sudo systemctl start gxdm-rescue.service
 sudo chvt 8
 ```
 
-These commands start the service for this boot only. They do not enable it at
+Without packaging, install the same files by hand:
+
+```sh
+sudo install -o root -g root -m 0755 target/release/gxdm-emergency-mode /usr/sbin/
+sudo install -o root -g root -m 0644 data/gxdm-rescue.pam /etc/pam.d/gxdm-rescue
+sudo install -o root -g root -m 0644 data/gxdm-rescue.service /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+`systemctl start` runs the service for this boot only. It does not enable it at
 boot. The service conflicts with `getty@tty8.service`, not your current display
 manager. Stop it from another VT or an administrative terminal with:
 
