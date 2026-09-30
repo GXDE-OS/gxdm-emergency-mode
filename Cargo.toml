@@ -5,4 +5,9 @@ edition = "2024"
 
 [dependencies]
 crossterm = "0.29"
+libc = "0.2.189"
+nix = { version = "0.31.3", features = ["user", "term", "process", "signal", "fs"] }
+pam-client = { version = "0.5.0", default-features = false }
 ratatui = "0.30.2"
+signal-hook = "0.4.4"
+zeroize = "1.9.0"

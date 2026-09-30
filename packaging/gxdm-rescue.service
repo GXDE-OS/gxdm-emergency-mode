@@ -1,0 +1,29 @@
+[Unit]
+Description=GXDE emergency display manager (logind)
+Requires=systemd-logind.service
+After=systemd-logind.service systemd-user-sessions.service
+Conflicts=getty@tty8.service
+ConditionPathExists=/dev/tty8
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/gxdm-emergency-mode
+User=root
+WorkingDirectory=/
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/tty8
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+UtmpIdentifier=tty8
+UtmpMode=user
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=15
+LimitCORE=0
+# Do not set PAMName: only the per-login worker belongs to a user session.
+
+[Install]
+WantedBy=multi-user.target

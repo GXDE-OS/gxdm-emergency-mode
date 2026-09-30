@@ -1,0 +1,13 @@
+# Debian/GXDE policy. Install as /etc/pam.d/gxdm-rescue.
+# Fail closed if logind integration is unavailable.
+auth requisite pam_nologin.so
+auth required pam_shells.so
+@include common-auth
+@include common-account
+session required pam_loginuid.so
+session required pam_limits.so
+session required pam_env.so readenv=1
+session required pam_env.so readenv=1 envfile=/etc/default/locale
+session optional pam_keyinit.so force revoke
+session required pam_unix.so
+session required pam_systemd.so

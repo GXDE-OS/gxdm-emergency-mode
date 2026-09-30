@@ -14,8 +14,7 @@
 
 //! Foreground greeter.
 
-use std::{collections::BTreeMap, path::PathBuf};
-
+use crate::backend::login::Request;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     Frame,
@@ -24,6 +23,8 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph},
 };
+use std::{collections::BTreeMap, path::PathBuf};
+use zeroize::{Zeroize, Zeroizing};
 
 const LIGHT_BLUE: Color = Color::Rgb(155, 205, 245);
 const SESSION: usize = 2;
@@ -37,7 +38,8 @@ pub struct Greeter {
     sessions: Vec<(String, PathBuf)>,
     selected: usize,
     focus: usize,
-    status: &'static str,
+    status: String,
+    pending: Option<Request>,
 }
 
 impl Greeter {
@@ -49,17 +51,36 @@ impl Greeter {
             sessions: sessions.into_iter().collect(),
             selected: 0,
             focus: 0,
-            status: "",
+            status: String::new(),
+            pending: None,
         }
     }
 
     // Login logic.
     fn login(&mut self) {
-        self.status = if self.username.is_empty() {
-            "Username is required"
+        if self.username.is_empty() {
+            self.password.zeroize();
+            self.status = "Username is required".into();
+        } else if let Some((_, session)) = self.sessions.get(self.selected) {
+            self.pending = Some(Request {
+                username: self.username.clone(),
+                password: Zeroizing::new(std::mem::take(&mut self.password)),
+                session: session.clone(),
+            });
+            self.status = "Logging in...".into();
         } else {
-            "Authentication not connected"
-        };
+            self.password.zeroize();
+            self.status = "No sessions available".into();
+        }
+    }
+
+    pub fn take_login(&mut self) -> Option<Request> {
+        self.pending.take()
+    }
+
+    pub fn set_status(&mut self, status: String) {
+        self.status = status;
+        self.focus = 1;
     }
 
     // Return true only for Ctrl-C.
@@ -101,7 +122,9 @@ impl Greeter {
                     &mut self.password
                 };
                 match key.code {
-                    KeyCode::Char(c) if !c.is_control() => value.push(c),
+                    KeyCode::Char(c) if !c.is_control() && value.len() + c.len_utf8() <= 16384 => {
+                        value.push(c)
+                    }
                     KeyCode::Backspace => {
                         value.pop();
                     }
@@ -111,6 +134,12 @@ impl Greeter {
             _ => {}
         }
         false
+    }
+}
+
+impl Drop for Greeter {
+    fn drop(&mut self) {
+        self.password.zeroize();
     }
 }
 
@@ -189,7 +218,7 @@ fn draw_form(frame: &mut Frame, body: Rect, greeter: &Greeter) {
             rows[index],
         );
     }
-    
+
     let marker = if greeter.focus == LOGIN { "❃ " } else { "" };
     frame.render_widget(
         Paragraph::new(format!("{marker}Login"))
@@ -197,7 +226,7 @@ fn draw_form(frame: &mut Frame, body: Rect, greeter: &Greeter) {
             .style(focus_style(greeter, LOGIN)),
         Rect::new(rows[3].x, rows[3].y + 1, rows[3].width, 1),
     );
-    frame.render_widget(Paragraph::new(greeter.status), rows[5]);
+    frame.render_widget(Paragraph::new(greeter.status.as_str()), rows[5]);
 }
 
 // Highlight the focused item in yellow.
@@ -292,7 +321,7 @@ mod tests {
             ("A".into(), PathBuf::from("a.desktop")),
             ("B".into(), PathBuf::from("b.desktop")),
         ]));
-        for c in "user".chars() {
+        for c in "user\u{540d}".chars() {
             assert!(!press(&mut greeter, KeyCode::Char(c)));
         }
         press(&mut greeter, KeyCode::Backspace);
@@ -340,13 +369,30 @@ mod tests {
         press(&mut greeter, KeyCode::Up);
         press(&mut greeter, KeyCode::Enter);
         assert_eq!(greeter.focus, LOGIN);
-        assert_eq!(greeter.status, "Authentication not connected");
+        assert_eq!(greeter.status, "No sessions available");
         let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
         terminal.draw(|frame| draw(frame, &greeter)).unwrap();
         let buffer = terminal.backend().buffer();
         let text: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
         assert!(text.contains("Login"));
-        assert!(text.contains("Authentication not connected"));
+        assert!(text.contains("No sessions available"));
+    }
+
+    #[test]
+    fn login_moves_password_into_one_pending_request() {
+        let mut greeter = Greeter::new(BTreeMap::from([(
+            "GXDE".into(),
+            PathBuf::from("/usr/share/xsessions/deepin.desktop"),
+        )]));
+        greeter.username = "user".into();
+        greeter.password = "secret".into();
+        greeter.focus = LOGIN;
+        press(&mut greeter, KeyCode::Enter);
+        assert!(greeter.password.is_empty());
+        let request = greeter.take_login().unwrap();
+        assert_eq!(request.username, "user");
+        assert_eq!(request.password.as_str(), "secret");
+        assert!(greeter.take_login().is_none());
     }
 
     #[test]

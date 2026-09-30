@@ -19,8 +19,14 @@ jobs:
           rustup default stable
           rustup component add clippy rustfmt
 
+      - name: Install native dependencies
+        run: sudo apt-get update && sudo apt-get install -y libpam0g-dev libsystemd-dev libclang-dev
+
       - name: Check linting
         run: cargo clippy --all-targets --all-features --locked -- -D warnings
+
+      - name: Run tests
+        run: cargo test --locked
 
       - name: Check code style
         run: ./format-code --check

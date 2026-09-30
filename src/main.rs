@@ -17,22 +17,55 @@ mod render;
 
 use crossterm::event::{self, Event};
 use ratatui::DefaultTerminal;
-use std::io;
+use std::{
+    io,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 
-// Start the terminal UI.
+// Disable core dumps before accepting credentials in either process.
 fn main() -> io::Result<()> {
-    ratatui::run(run)
+    let limit = libc::rlimit {
+        rlim_cur: 0,
+        rlim_max: 0,
+    };
+    if unsafe { libc::setrlimit(libc::RLIMIT_CORE, &limit) } != 0 {
+        return Err(io::Error::last_os_error());
+    }
+    if std::env::args().nth(1).as_deref() == Some(backend::login::WORKER_ARG) {
+        return backend::worker::run().map_err(|error| io::Error::other(error.to_string()));
+    }
+    let stop = Arc::new(AtomicBool::new(false));
+    for sig in [libc::SIGTERM, libc::SIGINT, libc::SIGHUP] {
+        signal_hook::flag::register(sig, Arc::clone(&stop))?;
+    }
+    ratatui::run(|terminal| run(terminal, &stop))
 }
 
 // Handle input while the greeter is running.
-fn run(terminal: &mut DefaultTerminal) -> io::Result<()> {
+fn run(terminal: &mut DefaultTerminal, stop: &AtomicBool) -> io::Result<()> {
     let mut greeter = render::greeter::Greeter::new(backend::sessions::session_names());
-    loop {
+    while !stop.load(Ordering::Relaxed) {
         terminal.draw(|frame| render::greeter::draw(frame, &greeter))?;
-        if let Event::Key(key) = event::read()?
+        if event::poll(Duration::from_millis(100))?
+            && let Event::Key(key) = event::read()?
             && greeter.handle_key(key)
         {
             return Ok(());
         }
+        if let Some(request) = greeter.take_login() {
+            ratatui::try_restore()?;
+            let result = backend::login::start(request, stop);
+            *terminal = ratatui::try_init()?;
+            greeter.set_status(match result {
+                Ok(true) => "Session ended".into(),
+                Ok(false) => "Login/session failed; see service journal".into(),
+                Err(error) => error.to_string(),
+            });
+        }
     }
+    Ok(())
 }

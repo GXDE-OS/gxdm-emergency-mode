@@ -15,3 +15,9 @@
 //! Backend for greeter
 
 pub mod sessions;
+
+mod auth;
+mod desktop;
+pub mod login;
+mod logind;
+pub mod worker;
