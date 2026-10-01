@@ -22,12 +22,26 @@ $ ./build-deb -c  # 清理仓库用，注意这会清理掉生成的最终产物
 ```
 
 ## 使用
+### 使用 `gxdmr` 自动切换
+> **注意**: 请在TTY下执行；此脚本仅在Debian包提供，手动安装的用户需要自行拷贝脚本。
+> 脚本可以在`./scripts/gxdmr`找到。
+
+#### 启动救援模式
+```shell
+$ sudo gxdmr <原来显示管理器的服务名>  # 例如: sudo gxdmr gxdm
+```
+
+#### 恢复到之前的显示管理器
+```shell
+$ sudo gxdmr --restore  # 恢复到之前启动前的显示管理器
+```
+
 ### 手动拉起
 > **注意**: 在一些老版本下，您需要手动切换到VT8 (`Ctrl + Alt + F8`). 请在TTY下执行。
 
 ```shell
-$ sudo systemctl stop <你正在使用的显示管理器>.service     # 例如 sudo systemctl stop gxdm.service
-$ sudo systemctl disable <你正在使用的显示管理器>.service  # 例如 sudo systemctl disable gxdm.service
+$ sudo systemctl stop <您正在使用的显示管理器>.service     # 例如 sudo systemctl stop gxdm.service
+$ sudo systemctl disable <您正在使用的显示管理器>.service  # 例如 sudo systemctl disable gxdm.service
 $ sudo systemctl enable gxdm-rescue.service
 $ sudo systemctl start gxdm-rescue.service
 ```
@@ -38,8 +52,8 @@ $ sudo systemctl start gxdm-rescue.service
 ```shell
 $ sudo systemctl stop gxdm-rescue.service
 $ sudo systemctl disable gxdm-rescue.service
-$ sudo systemctl enable <你正在使用的显示管理器>.service  # 例如 sudo systemctl enable gxdm.service
-$ sudo systemctl start <你正在使用的显示管理器>.service   # 例如 sudo systemctl start gxdm.service
+$ sudo systemctl enable <您正在使用的显示管理器>.service  # 例如 sudo systemctl enable gxdm.service
+$ sudo systemctl start <您正在使用的显示管理器>.service   # 例如 sudo systemctl start gxdm.service
 ```
 
 ## 许可证

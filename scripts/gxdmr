@@ -1,0 +1,60 @@
+#!/bin/bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: sudo gxdmr <original-dm> | --restore"
+    echo "Switch display managers and their boot enablement. Save your work first."
+}
+
+if [[ $# != 1 ]]; then
+    usage >&2
+    exit 2
+fi
+if [[ $1 == --help || $1 == -h ]]; then
+    usage
+    exit 0
+fi
+if (( EUID != 0 )); then
+    echo "Run this command as root (sudo gxdmr ...)." >&2
+    exit 1
+fi
+
+restore=false
+name=$1
+if [[ $name == --restore ]]; then
+    restore=true
+    read -r -p 'Original display manager service (without .service): ' name
+fi
+name=${name%.service}
+# Accept a single concrete unit name, never options, paths, or unit patterns.
+if [[ ! $name =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.@-]*$ ||
+      $name == gxdm-rescue || $name == display-manager ]]; then
+    echo "Enter the original DM's concrete service name, e.g. gxdm, lightdm or sddm." >&2
+    exit 2
+fi
+original=$name.service
+rescue=gxdm-rescue.service
+for unit in "$original" "$rescue"; do
+    if [[ $(systemctl show --property=LoadState --value "$unit") != loaded ]]; then
+        echo "Service is missing, masked or cannot be loaded: $unit" >&2
+        exit 1
+    fi
+done
+
+source=$original
+target=$rescue
+if $restore; then
+    source=$rescue
+    target=$original
+fi
+
+echo "Switching from $source to $target; the current graphical session may end."
+# Run outside the caller's login session so stopping its DM cannot kill the switch.
+# Enable the target before stopping the source; stop on any systemctl failure.
+exec systemd-run --collect --wait --description="gxdmr: $source -> $target" \
+    /bin/bash -euc '
+        systemctl disable "$1"
+        systemctl enable "$2"
+        systemctl stop "$1"
+        systemctl start "$2"
+    ' gxdmr "$source" "$target"

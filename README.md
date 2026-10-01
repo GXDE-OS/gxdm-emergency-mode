@@ -22,6 +22,21 @@ $ ./build-deb -c  # This command cleans up the repo. Note that the artifacts wil
 ```
 
 ## Usage
+### Switching w/ `gxdmr`
+> **Note**: Please run under TTY. This script comes with the Debian packaging,
+> for a manual install you may manual install this script.
+> The script may be found on `./scripts/gxdmr`.
+
+#### Start Rescue Mode
+```shell
+$ sudo gxdmr <original DM service name>  # e.g. sudo gxdmr gxdm
+```
+
+#### Restore to your Preferred Display Manager
+```shell
+$ sudo gxdmr --restore  # Restores to the display manager that you mentioned earlier.
+```
+
 ### Starting Manually
 > **NOTE**: For some old version, you may need to switch to VT8 manually. Please run under TTY.
 
