@@ -26,7 +26,7 @@ $ ./build-deb -c  # This command cleans up the repo. Note that the artifacts wil
 > **NOTE**: For some old version, you may need to switch to VT8 manually. Please run under TTY.
 
 ```shell
-$ sudo systemctl stop <the display manager you're using>.service     # e.g.例如 sudo systemctl stop gxdm.service
+$ sudo systemctl stop <the display manager you're using>.service     # e.g. sudo systemctl stop gxdm.service
 $ sudo systemctl disable <the display manager you're using>.service  # e.g. sudo systemctl disable gxdm.service
 $ sudo systemctl enable gxdm-rescue.service
 $ sudo systemctl start gxdm-rescue.service
@@ -38,8 +38,8 @@ $ sudo systemctl start gxdm-rescue.service
 ```shell
 $ sudo systemctl stop gxdm-rescue.service
 $ sudo systemctl disable gxdm-rescue.service
-$ sudo systemctl enable <the display manager you're using>.service  # 例如 sudo systemctl enable gxdm.service
-$ sudo systemctl start <the display manager you're using>.service   # 例如 sudo systemctl start gxdm.service
+$ sudo systemctl enable <the display manager you're using>.service  # e.g. sudo systemctl enable gxdm.service
+$ sudo systemctl start <the display manager you're using>.service   # e.g. sudo systemctl start gxdm.service
 ```
 
 ## License
