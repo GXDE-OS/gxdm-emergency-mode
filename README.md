@@ -1,150 +1,48 @@
-# gxdm-emergency-mode
+# GXDE Display Manager (Rescue Mode)
+## Introduction
+This program helps you to login your GUI sessions when your GXDE Display Manager does not work.
 
-A terminal-based emergency display manager for GXDE. Login uses PAM and
-**systemd-logind**, not seatd. The existing yellow focus highlight is retained;
-only the selected, borderless Login action has the `❃` prefix.
+This program does not contain any graphical user interface, all operations are happening under TTY VT8.
 
-## Build
+## Building
+### Dependencies
+Please have `rustc`, `cargo`, `libpam0g-dev`, `libsystemd-dev` and `libclang-dev` ready.
 
-On Debian/GXDE, install native build dependencies, then build with Rust:
-
-```sh
-sudo apt install libpam0g-dev libsystemd-dev libclang-dev
-cargo build --release
+### Building Manually
+```shell
+$ cargo build --release
 ```
 
-Runtime dependencies: systemd-logind, libpam-systemd, libpam-modules,
-libpam-runtime, dbus-user-session, dbus-bin, and bash. X11 sessions also need `xinit`, `xauth`
-and `xserver-xorg-core`. Install the desktop/compositor separately.
-
-## Install and run on a dedicated VT
-
-**Test in a VM first.** This is privileged display-manager code; unit tests do
-not replace an end-to-end PAM/logind/graphics test. The supplied service uses
-**tty8 on seat0**. Check that no other display manager is using that VT before
-starting it. Do not replace your working display manager yet.
-
-Build and install the Debian package. It installs the binary to `/usr/sbin`,
-the PAM policy to `/etc/pam.d/gxdm-rescue` and the systemd unit, but does not
-enable or start the service. `cargo` needs the crates in its local cache or
-network access.
-
-```sh
-sudo apt install debhelper cargo rustc
-dpkg-buildpackage -us -uc -b
-sudo apt install ../gxdm-emergency-mode_0.1.0-gxde1_amd64.deb
-sudo systemctl start gxdm-rescue.service
+### Packaging
+#### Debian
+```shell
+$ chmod a+x ./build-deb
+$ ./build-deb -d  # Install depencies, build and generate .deb package. Next time you may run ./build-deb to skip the dependency check.
+$ ./build-deb -c  # This command cleans up the repo. Note that the artifacts will be cleared.
 ```
 
-Without packaging, install the same files by hand:
+## Usage
+### Starting Manually
+> **NOTE**: For some old version, you may need to switch to VT8 manually. Please run under TTY.
 
-```sh
-sudo apt install kbd
-sudo install -o root -g root -m 0755 target/release/gxdm-emergency-mode /usr/sbin/
-sudo install -o root -g root -m 0644 data/gxdm-rescue.pam /etc/pam.d/gxdm-rescue
-sudo install -o root -g root -m 0644 data/gxdm-rescue.service /etc/systemd/system/
-sudo systemctl daemon-reload
+```shell
+$ sudo systemctl stop <the display manager you're using>.service     # e.g.例如 sudo systemctl stop gxdm.service
+$ sudo systemctl disable <the display manager you're using>.service  # e.g. sudo systemctl disable gxdm.service
+$ sudo systemctl enable gxdm-rescue.service
+$ sudo systemctl start gxdm-rescue.service
 ```
 
-Starting or restarting the service automatically switches the display to tty8
-before launching the greeter. If switching fails, startup fails and the error
-is recorded in the journal. If you override `TTYPath`, also update
-`ExecStartPre` to switch to the same VT.
+### Restoring to Your Preferred Display Manager
+> **Note**: Please run under TTY.
 
-`systemctl start` runs the service for this boot only. It does not enable it at
-boot. The service conflicts with `getty@tty8.service`, not your current display
-manager. Stop it from another VT or an administrative terminal with:
-
-```sh
-sudo systemctl stop gxdm-rescue.service
-journalctl -u gxdm-rescue.service -b
+```shell
+$ sudo systemctl stop gxdm-rescue.service
+$ sudo systemctl disable gxdm-rescue.service
+$ sudo systemctl enable <the display manager you're using>.service  # 例如 sudo systemctl enable gxdm.service
+$ sudo systemctl start <the display manager you're using>.service   # 例如 sudo systemctl start gxdm.service
 ```
 
-Do not install the binary setuid. Starting it from a normal terminal is useful
-for UI preview, but actual login requires a root system service with a Linux
-controlling VT and **no existing logind session**. In particular, `sudo` inside
-an existing login/SSH/desktop session is not a supported launch method. Do not
-add `PAMName=` to the systemd unit: PAM belongs to the per-login worker.
+## License
+(C) 2026 CharOfString & GXDE Maintainers.
 
-Use Up/Down or Tab to select a field, Left/Right to choose a desktop, and Enter
-on Login to authenticate. A failed login clears the submitted password. When
-the desktop exits, the greeter returns. Ctrl-C exits the greeter.
-
-## Login lifecycle
-
-1. Transfer credentials to a fresh worker through a private anonymous pipe,
-   never command arguments, environment variables, or a password file.
-2. Authenticate with PAM and check account policy. Expired/locked accounts and
-   empty passwords are rejected; graphical root login is disabled.
-3. Open the PAM session with the VT, seat and X11/Wayland metadata. The installed
-   PAM policy **requires** `pam_systemd.so`. Verify the worker's logind session
-   ID, UID, seat, VT, active state and runtime directory before launching anything.
-4. Start the desktop with the user's primary/supplementary groups and UID,
-   home directory, PAM environment and user bus. The greeter's environment is
-   not inherited. After dropping privileges, load `/etc/profile` and
-   `~/.profile` with Bash and publish desktop/data-path/toolkit environment
-   variables to D-Bus/systemd activation. This includes GXDE theme and
-   application export paths. `LIBSEAT_BACKEND=logind` is set for libseat-based compositors.
-5. For X11, use `startx`/`xinit` to manage Xauthority and Xorg on the same VT,
-   with TCP disabled. Before the desktop starts, an unprivileged X11 client
-   publishes DISPLAY, XAUTHORITY and desktop metadata to D-Bus/systemd activation
-   via `dbus-update-activation-environment --systemd`. This runs after xinit
-   sets the display and cookie, so activated desktop services can access Xorg.
-   Then run `/etc/X11/Xsession` to load Xresources, input-method and other
-   distribution session hooks. Commands with arguments use a private temporary
-   launcher under `/run/user/UID`, with each argument shell-quoted independently.
-   Xsession output goes to `~/.xsession-errors`. For Wayland, launch the selected
-   compositor after profile initialization; do not run X11 hooks.
-6. Wait for logout, close PAM while still privileged, and ask logind to terminate
-   that session's remaining processes. Restore terminal ownership, attributes
-   and foreground control before showing the greeter again. Termination signals
-   are forwarded, with bounded waits before forcibly stopping the worker.
-
-The password buffers owned by the request/conversation are cleared after use;
-core dumps are disabled. PAM modules manage their own credential copies.
-Only root-owned, non-group/world-writable system session files and parent paths
-are accepted, from `/usr/share/xsessions` and `/usr/share/wayland-sessions`.
-`Exec` is parsed into arguments, not evaluated as a shell command.
-
-### Current limits
-
-- Local seat0/Linux VT operation only; no remote or multi-seat login.
-- Password-only conversation. Additional hidden challenges (MFA) fail closed;
-  password changes must be performed through another login tool.
-- Session `Exec` supports double-quoted arguments and literal `%%`, but rejects
-  other desktop field codes. Relative executable paths containing `/` are
-  rejected. The desktop launcher must remain in the foreground until logout.
-- The PAM policy is Debian/GXDE-specific. Sites using SELinux, custom PAM session
-  modules or other distributions must review/adapt it before deployment.
-- User-managed systemd services outside the login session scope are not stopped.
-- Profile and Xsession hooks run as the logged-in user and may customize or
-  override the session. Wayland compositors must publish their final display
-  environment themselves once their sockets are ready.
-
-Architecture references: [pam_systemd](https://www.freedesktop.org/software/systemd/man/latest/pam_systemd.html),
-[PAM context/session API](https://docs.rs/pam-client/latest/pam_client/struct.Context.html),
-[desktop Exec syntax](https://specifications.freedesktop.org/desktop-entry-spec/latest/exec-variables.html),
-[startx](https://xorg.freedesktop.org/releases/X11R6.8.2/doc/startx.1.html).
-
-## Checks
-
-```sh
-./update-header
-./format-code
-./lint-code
-cargo test
-./update-header --check
-./format-code --check
-```
-
-Tests cover request framing/limits, password handling, desktop argument parsing,
-launch command construction, process supervision and UI behavior. They do not
-authenticate real users or start graphical sessions.
-
-For VM acceptance testing, check wrong passwords and locked/expired accounts,
-then valid X11 and Wayland logins. Inside each desktop check `id`, the XDG
-variables and `loginctl session-status`; confirm the selected UID, tty8, seat0,
-active state, runtime directory and lack of seatd usage. Log out, repeat with a
-second user, and check that the previous session is gone and the greeter still
-works. Also stop the service during login and during a running desktop, and test
-missing pam_systemd/startx, a failed desktop executable and a small terminal.
+GXDE Display Manager (Rescue Mode) is licensed under GNU GENERAL PUBLIC LICENSE Version 3. You may find a copy of the license [here](./LICENSE).
