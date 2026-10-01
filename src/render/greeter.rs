@@ -461,7 +461,7 @@ mod tests {
         let row = |y| (0..80).map(|x| buffer[(x, y)].symbol()).collect::<String>();
 
         assert!(row(0).contains("GXDE Display Manager"));
-        assert!(row(0).contains("RECUSE MODE"));
+        assert!(row(0).contains("RESCUE MODE"));
         assert!(row(1).starts_with('╭'));
         assert!(row(1).ends_with('╮'));
         assert!(row(22).chars().all(|c| c == '─'));
