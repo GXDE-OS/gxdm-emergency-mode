@@ -17,6 +17,7 @@ Architecture: linux-any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd,
+         kbd,
          bash,
          dbus-user-session,
          dbus-bin,

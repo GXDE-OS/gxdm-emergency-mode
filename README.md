@@ -34,17 +34,22 @@ sudo apt install debhelper cargo rustc
 dpkg-buildpackage -us -uc -b
 sudo apt install ../gxdm-emergency-mode_0.1.0-gxde1_amd64.deb
 sudo systemctl start gxdm-rescue.service
-sudo chvt 8
 ```
 
 Without packaging, install the same files by hand:
 
 ```sh
+sudo apt install kbd
 sudo install -o root -g root -m 0755 target/release/gxdm-emergency-mode /usr/sbin/
 sudo install -o root -g root -m 0644 data/gxdm-rescue.pam /etc/pam.d/gxdm-rescue
 sudo install -o root -g root -m 0644 data/gxdm-rescue.service /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
+
+Starting or restarting the service automatically switches the display to tty8
+before launching the greeter. If switching fails, startup fails and the error
+is recorded in the journal. If you override `TTYPath`, also update
+`ExecStartPre` to switch to the same VT.
 
 `systemctl start` runs the service for this boot only. It does not enable it at
 boot. The service conflicts with `getty@tty8.service`, not your current display

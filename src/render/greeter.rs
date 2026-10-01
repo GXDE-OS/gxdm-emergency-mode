@@ -265,7 +265,7 @@ fn draw_top(frame: &mut Frame, area: Rect) {
             "  GXDE Display Manager ",
             style.add_modifier(Modifier::BOLD),
         ),
-        Span::styled("RECUSE MODE", style.add_modifier(Modifier::BOLD)),
+        Span::styled("RESCUE MODE", style.add_modifier(Modifier::BOLD)),
     ]);
     frame.render_widget(
         Paragraph::new(title),
