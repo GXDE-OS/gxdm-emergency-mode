@@ -1,3 +1,9 @@
+gxdm-emergency-mode (1.0.0-gxde1) unstable; urgency=medium
+
+  * Added a kickstart script.
+
+ -- CharOfString <root@charofstring.cc>  Thu, 01 Oct 2026 00:53:01 -0500
+
 gxdm-emergency-mode (0.1.1-gxde1) unstable; urgency=medium
 
   * Fixed X11 login issue.
