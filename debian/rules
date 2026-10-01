@@ -4,6 +4,14 @@
 export CARGO_TARGET_DIR := $(CURDIR)/debian/cargo-target
 PKG := debian/gxdm-emergency-mode
 
+# Debian trixie gets Rust >= 1.88 from rustc-web, which installs into /usr/bin.
+# deepin 25 (crimson) keeps an old default rustc (1.81) and puts newer
+# toolchains in /usr/lib/rust-<version>/bin, so put the newest one first.
+RUST_BIN := $(shell ls -d /usr/lib/rust-*/bin 2>/dev/null | sort -V | tail -n 1)
+ifneq (,$(RUST_BIN))
+export PATH := $(RUST_BIN):$(PATH)
+endif
+
 %:
 	dh $@
 

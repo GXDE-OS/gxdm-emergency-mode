@@ -3,8 +3,8 @@ Section: admin
 Priority: optional
 Maintainer: CharOfString <root@charofstring.cc>
 Build-Depends: debhelper-compat (= 13),
-               cargo,
-               rustc,
+               cargo (>= 1.88) | cargo-web | cargo-1.95,
+               rustc (>= 1.88) | rustc-web | rustc-1.95,
                libclang-dev,
                libpam0g-dev,
                libsystemd-dev

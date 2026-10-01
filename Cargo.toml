@@ -2,6 +2,8 @@
 name = "gxdm-emergency-mode"
 version = "0.1.0"
 edition = "2024"
+# ratatui 0.30 and its dependencies need Rust 1.88.
+rust-version = "1.88"
 
 [dependencies]
 crossterm = "0.29"
