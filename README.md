@@ -4,6 +4,8 @@ This program helps you to login your GUI sessions when your GXDE Display Manager
 
 This program does not contain any graphical user interface, all operations are happening under TTY VT8.
 
+![Screenshot](./doc/imgs/screenshot.png)
+
 ## Building
 ### Dependencies
 Please have `rustc`, `cargo`, `libpam0g-dev`, `libsystemd-dev` and `libclang-dev` ready.

@@ -4,6 +4,8 @@
 
 本程序不包含任何GUI界面，所有操作均在TTY VT8下执行。
 
+![界面截图](./doc/imgs/screenshot.png)
+
 ## 编译
 ### 前提条件
 您的系统上需要有`rustc`、`cargo`、`libpam0g-dev`、`libsystemd-dev`和`libclang-dev`。
