@@ -17,11 +17,14 @@ Architecture: linux-any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd,
+         bash,
          dbus-user-session,
+         dbus-bin,
          libpam-modules,
          libpam-runtime,
          libpam-systemd
-Recommends: xauth,
+Recommends: x11-common,
+            xauth,
             xinit,
             xserver-xorg-core
 Description: A terminal-based emergency display manager for GXDE that logs you in when GXDM fails to start.

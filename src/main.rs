@@ -38,6 +38,9 @@ fn main() -> io::Result<()> {
     if std::env::args().nth(1).as_deref() == Some(backend::login::WORKER_ARG) {
         return backend::worker::run().map_err(|error| io::Error::other(error.to_string()));
     }
+    if std::env::args().nth(1).as_deref() == Some(backend::x11::CLIENT_ARG) {
+        return backend::x11::run();
+    }
     let stop = Arc::new(AtomicBool::new(false));
     for sig in [libc::SIGTERM, libc::SIGINT, libc::SIGHUP] {
         signal_hook::flag::register(sig, Arc::clone(&stop))?;

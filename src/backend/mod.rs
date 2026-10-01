@@ -21,3 +21,5 @@ mod desktop;
 pub mod login;
 mod logind;
 pub mod worker;
+
+pub mod x11;

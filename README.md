@@ -14,7 +14,7 @@ cargo build --release
 ```
 
 Runtime dependencies: systemd-logind, libpam-systemd, libpam-modules,
-libpam-runtime, and dbus-user-session. X11 sessions also need `xinit`, `xauth`
+libpam-runtime, dbus-user-session, dbus-bin, and bash. X11 sessions also need `xinit`, `xauth`
 and `xserver-xorg-core`. Install the desktop/compositor separately.
 
 ## Install and run on a dedicated VT
@@ -76,9 +76,20 @@ the desktop exits, the greeter returns. Ctrl-C exits the greeter.
    ID, UID, seat, VT, active state and runtime directory before launching anything.
 4. Start the desktop with the user's primary/supplementary groups and UID,
    home directory, PAM environment and user bus. The greeter's environment is
-   not inherited. `LIBSEAT_BACKEND=logind` is set for libseat-based compositors.
+   not inherited. After dropping privileges, load `/etc/profile` and
+   `~/.profile` with Bash and publish desktop/data-path/toolkit environment
+   variables to D-Bus/systemd activation. This includes GXDE theme and
+   application export paths. `LIBSEAT_BACKEND=logind` is set for libseat-based compositors.
 5. For X11, use `startx`/`xinit` to manage Xauthority and Xorg on the same VT,
-   with TCP disabled. For Wayland, launch the selected compositor directly.
+   with TCP disabled. Before the desktop starts, an unprivileged X11 client
+   publishes DISPLAY, XAUTHORITY and desktop metadata to D-Bus/systemd activation
+   via `dbus-update-activation-environment --systemd`. This runs after xinit
+   sets the display and cookie, so activated desktop services can access Xorg.
+   Then run `/etc/X11/Xsession` to load Xresources, input-method and other
+   distribution session hooks. Commands with arguments use a private temporary
+   launcher under `/run/user/UID`, with each argument shell-quoted independently.
+   Xsession output goes to `~/.xsession-errors`. For Wayland, launch the selected
+   compositor after profile initialization; do not run X11 hooks.
 6. Wait for logout, close PAM while still privileged, and ask logind to terminate
    that session's remaining processes. Restore terminal ownership, attributes
    and foreground control before showing the greeter again. Termination signals
@@ -101,8 +112,9 @@ are accepted, from `/usr/share/xsessions` and `/usr/share/wayland-sessions`.
 - The PAM policy is Debian/GXDE-specific. Sites using SELinux, custom PAM session
   modules or other distributions must review/adapt it before deployment.
 - User-managed systemd services outside the login session scope are not stopped.
-- This version does not run `/etc/X11/Xsession` or shell profile hooks around the
-  selected command. Desktops requiring such setup need a suitable session wrapper.
+- Profile and Xsession hooks run as the logged-in user and may customize or
+  override the session. Wayland compositors must publish their final display
+  environment themselves once their sockets are ready.
 
 Architecture references: [pam_systemd](https://www.freedesktop.org/software/systemd/man/latest/pam_systemd.html),
 [PAM context/session API](https://docs.rs/pam-client/latest/pam_client/struct.Context.html),

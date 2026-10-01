@@ -18,7 +18,7 @@ use super::{
     auth::Conversation,
     desktop::{Desktop, invalid},
     login::{Request, check_host},
-    logind,
+    logind, x11,
 };
 
 use nix::{
@@ -61,6 +61,10 @@ pub fn run() -> Result<()> {
     let desktop = Desktop::read(&request.session)?;
     if desktop.kind == "x11" && !Path::new("/usr/bin/startx").is_file() {
         return Err(invalid("X11 login requires the xinit package (/usr/bin/startx)").into());
+    }
+
+    if desktop.kind == "x11" && !Path::new("/etc/X11/Xsession").is_file() {
+        return Err(invalid("X11 login requires x11-common (/etc/X11/Xsession)").into());
     }
 
     if !Path::new("/etc/pam.d/gxdm-rescue").is_file() {
@@ -115,7 +119,7 @@ pub fn run() -> Result<()> {
         return Err(invalid("Unsafe runtime directory").into());
     }
 
-    let mut command = desktop_command(&desktop, vt)?;
+    let mut command = profile_command(desktop_command(&desktop, vt)?);
     command.env_clear();
     let environment = session.envlist();
     command.envs(environment.iter().map(|item| item.key_value()));
@@ -207,6 +211,29 @@ fn executable(program: &str) -> io::Result<PathBuf> {
         .ok_or_else(|| invalid("Session executable not found"))
 }
 
+fn profile_command(desktop: Command) -> Command {
+    let mut command = Command::new("/bin/bash");
+    command
+        .args([
+            "--noprofile",
+            "--norc",
+            "-c",
+            r#"
+if [ -r /etc/profile ]; then . /etc/profile; fi
+if [ -r "$HOME/.profile" ]; then . "$HOME/.profile"; fi
+/usr/bin/dbus-update-activation-environment --systemd \
+    XDG_DATA_DIRS XDG_CONFIG_DIRS XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP \
+    XDG_SESSION_TYPE DESKTOP_SESSION QT_QPA_PLATFORMTHEME QT_QPA_PLATFORM \
+    GTK_IM_MODULE QT_IM_MODULE XMODIFIERS || exit
+exec "$@"
+"#,
+            "gxdm-session",
+        ])
+        .arg(desktop.get_program())
+        .args(desktop.get_args());
+    command
+}
+
 fn desktop_command(desktop: &Desktop, vt: u32) -> io::Result<Command> {
     let program = executable(&desktop.argv[0])?;
     if desktop.kind == "wayland" {
@@ -224,6 +251,8 @@ fn desktop_command(desktop: &Desktop, vt: u32) -> io::Result<Command> {
         .ok_or_else(|| invalid("No free X display"))?;
     let mut command = Command::new("/usr/bin/startx");
     command
+        .arg(std::env::current_exe()?)
+        .arg(x11::CLIENT_ARG)
         .arg(program)
         .args(&desktop.argv[1..])
         .args(["--", "/usr/bin/Xorg"])
@@ -300,6 +329,27 @@ mod tests {
     use super::*;
 
     #[test]
+    fn profile_wrapper_preserves_command_arguments() {
+        let mut desktop = Command::new("/bin/true");
+        desktop.args(["two words", "$(id)", "", "--"]);
+        let command = profile_command(desktop);
+        let args: Vec<_> = command.get_args().collect();
+        assert_eq!(command.get_program(), "/bin/bash");
+        assert_eq!(
+            &args[4..],
+            ["gxdm-session", "/bin/true", "two words", "$(id)", "", "--"]
+        );
+        assert!(
+            Command::new("/bin/bash")
+                .args(["-n", "-c"])
+                .arg(args[3])
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+
+    #[test]
     fn wayland_launch_preserves_arguments_without_shell() {
         let desktop = Desktop {
             argv: vec!["/bin/true".into(), "two words".into(), "$(id)".into()],
@@ -330,8 +380,12 @@ mod tests {
             .get_args()
             .map(|arg| arg.to_str().unwrap())
             .collect();
-        assert_eq!(&args[..3], ["/bin/true", "--", "/usr/bin/Xorg"]);
-        assert_eq!(&args[4..], ["vt8", "-keeptty", "-nolisten", "tcp"]);
+        assert_eq!(Path::new(args[0]), std::env::current_exe().unwrap());
+        assert_eq!(
+            &args[1..5],
+            [x11::CLIENT_ARG, "/bin/true", "--", "/usr/bin/Xorg"]
+        );
+        assert_eq!(&args[6..], ["vt8", "-keeptty", "-nolisten", "tcp"]);
     }
 
     #[test]
