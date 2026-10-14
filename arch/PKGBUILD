@@ -1,0 +1,55 @@
+# Maintainer: CharOfString <root@charofstring.cc>
+pkgname=gxdm-emergency-mode-git
+pkgver=1.0.0
+pkgrel=1
+pkgdesc='GXDE emergency display manager on tty8'
+arch=('x86_64' 'aarch64')
+url="https://github.com/GXDE-OS/gxdm-emergency-mode"
+license=('GPL-3.0-or-later')
+# 服务启动前用 chvt 切换到 tty8 ・ The service switches to tty8 with chvt before starting.
+depends=('pam' 'systemd' 'kbd' 'bash' 'libgcc' 'glibc')
+makedepends=('git' 'rust')
+provides=('gxdm-emergency-mode')
+conflicts=('gxdm-emergency-mode')
+backup=('etc/pam.d/gxdm-rescue')
+source=()
+sha512sums=()
+
+# 直接使用 PKGBUILD 所在的 git 仓库作为源码 ・ Build from the git checkout this PKGBUILD lives in.
+_srcroot() {
+  git -C "$startdir" rev-parse --show-toplevel
+}
+
+prepare() {
+  # CARGO_HOME 与输出目录放在 $srcdir，不写入源码树 ・ CARGO_HOME and the target directory stay in $srcdir, out of the source tree.
+  export CARGO_HOME="$srcdir/cargo-home"
+  cd "$(_srcroot)"
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  # 与 debian/rules 相同 ・ Same as debian/rules.
+  export CARGO_HOME="$srcdir/cargo-home"
+  export CARGO_TARGET_DIR="$srcdir/target"
+  cd "$(_srcroot)"
+  cargo build --frozen --release
+}
+
+package() {
+  local _src
+  _src=$(_srcroot)
+  # 与 debian/rules 的 override_dh_auto_install 相同，/usr/sbin 换成 Arch 的 /usr/bin
+  # Same as override_dh_auto_install in debian/rules, with /usr/sbin replaced
+  # by Arch's /usr/bin.
+  install -Dm755 "$_src/scripts/gxdmr" "$pkgdir/usr/bin/gxdmr"
+  install -Dm755 "$srcdir/target/release/gxdm-emergency-mode" "$pkgdir/usr/bin/gxdm-emergency-mode"
+  install -Dm644 "$_src/data/gxdm-rescue.service" "$pkgdir/usr/lib/systemd/system/gxdm-rescue.service"
+  # Debian 的 common-auth/common-account 在 Arch 上对应 system-auth，语言设置位于 /etc/locale.conf
+  # Debian's common-auth/common-account map to system-auth on Arch, and the
+  # locale lives in /etc/locale.conf.
+  sed -e 's/^@include common-auth$/auth include system-auth/' \
+      -e 's/^@include common-account$/account include system-auth/' \
+      -e 's#envfile=/etc/default/locale#envfile=/etc/locale.conf#' \
+      "$_src/data/gxdm-rescue.pam" > "$srcdir/gxdm-rescue.pam"
+  install -Dm644 "$srcdir/gxdm-rescue.pam" "$pkgdir/etc/pam.d/gxdm-rescue"
+}
