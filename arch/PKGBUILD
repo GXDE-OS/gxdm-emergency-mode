@@ -8,7 +8,8 @@ url="https://github.com/GXDE-OS/gxdm-emergency-mode"
 license=('GPL-3.0-or-later')
 # 服务启动前用 chvt 切换到 tty8 ・ The service switches to tty8 with chvt before starting.
 depends=('pam' 'systemd' 'kbd' 'bash' 'libgcc' 'glibc')
-makedepends=('git' 'rust')
+# 依赖的 crate 用 bindgen 生成 PAM 绑定，需要 libclang ・ A dependency generates the PAM bindings with bindgen, which needs libclang.
+makedepends=('git' 'rust' 'clang')
 provides=('gxdm-emergency-mode')
 conflicts=('gxdm-emergency-mode')
 backup=('etc/pam.d/gxdm-rescue')
