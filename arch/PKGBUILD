@@ -1,5 +1,5 @@
 # Maintainer: CharOfString <root@charofstring.cc>
-pkgname=gxdm-emergency-mode-git
+pkgname=gxdm-emergency-mode
 pkgver=1.0.0
 pkgrel=1
 pkgdesc='GXDE emergency display manager on tty8'
@@ -10,8 +10,9 @@ license=('GPL-3.0-or-later')
 depends=('pam' 'systemd' 'kbd' 'bash' 'libgcc' 'glibc')
 # 依赖的 crate 用 bindgen 生成 PAM 绑定，需要 libclang ・ A dependency generates the PAM bindings with bindgen, which needs libclang.
 makedepends=('git' 'rust' 'clang')
-provides=('gxdm-emergency-mode')
-conflicts=('gxdm-emergency-mode')
+provides=("gxdm-emergency-mode-git=$pkgver")
+conflicts=('gxdm-emergency-mode-git')
+replaces=('gxdm-emergency-mode-git')
 backup=('etc/pam.d/gxdm-rescue')
 source=()
 sha512sums=()
